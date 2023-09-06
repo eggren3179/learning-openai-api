@@ -1,1 +1,3 @@
 .env
+llamaindex/storage/*
+llamaindex/data/*
