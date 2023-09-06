@@ -2,3 +2,6 @@ openai
 numpy
 python-dotenv
 faiss-gpu
+llama-index==0.8.21
+pypdf
+nltk
