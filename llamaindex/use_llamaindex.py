@@ -4,7 +4,8 @@ import sys
 from dotenv import load_dotenv
 import numpy as np
 import logging
-from llama_index import SimpleDirectoryReader, GPTVectorStoreIndex, StorageContext, load_index_from_storage
+from llama_index import SimpleDirectoryReader, GPTVectorStoreIndex, StorageContext, load_index_from_storage, ServiceContext, LLMPredictor, PromptHelper
+from langchain.chat_models import ChatOpenAI
 
 #ログレベルの設定
 logging.basicConfig(stream=sys.stdout, level=logging.INFO, force=True)
@@ -22,9 +23,21 @@ def create_new_index(input_dir="./data", save_dir="./storage"):
     logging.debug(f"documents: {documents}")
     logging.info("----End: loading documents-----\n")
 
+    # モデルのカスタマイズ
+    logging.info("----Start: setting models and chunk rules-----")
+    llm_predictor = LLMPredictor(llm=ChatOpenAI(temperature=0, model_name="gpt-3.5-turbo", openai_api_key=openai.api_key))
+    prompt_helper = PromptHelper(
+        chunk_size_limit=4096, # MAX LLM input token
+        num_output=256, # MAX LLM output token
+        chunk_overlap_ratio = 0.2
+    )
+    service_context = ServiceContext.from_defaults(llm_predictor = llm_predictor, prompt_helper=prompt_helper)
+    logging.info("----End: setting models and chunk rules-----")
+
     # インデックスの作成：時間がかかるので注意
     logging.info("----Start: making index-----")
-    index = GPTVectorStoreIndex.from_documents(documents)
+    # index = GPTVectorStoreIndex.from_documents(documents)
+    index = GPTVectorStoreIndex.from_documents(documents, service_context = service_context)
     logging.info(f"index:{index}")
     logging.info("----End: making index-----\n")
 
