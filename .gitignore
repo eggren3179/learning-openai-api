@@ -1,3 +1,4 @@
 .env
 llamaindex/storage/*
 llamaindex/data/*
+llamaindex/.ipynb_checkpoints
