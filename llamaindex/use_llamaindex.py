@@ -1,4 +1,4 @@
-import openai
+import openai #opanai==0.27.8で動作
 import os
 import sys
 from dotenv import load_dotenv
