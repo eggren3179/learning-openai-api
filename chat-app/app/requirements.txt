@@ -2,3 +2,5 @@ streamlit
 openai==1.1.1
 pandas
 numpy
+PyPDF2
+python-dotenv
