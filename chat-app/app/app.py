@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 import openai
 import os
 from PyPDF2 import PdfReader
+from langchain.text_splitter import RecursiveCharacterTextSplitter
 
 #環境変数からOpenAIのAPIキー読み込み
 load_dotenv(override=True)
@@ -20,10 +21,29 @@ if 'input_count' not in st.session_state:
     st.session_state.input_count = 0
 if 'messages' not in st.session_state:
     st.session_state.messages = []
+if 'emb_model_name' not in st.session_state:
+    st.session_state.emb_model_name = "text-embedding-ada-002"
 
 # #OpenAIのクライアント初期化
 print(openai.api_key)
 llm_client = openai.OpenAI(api_key=openai.api_key)
+
+def split_text(text):
+    """
+    テキストを分割
+    """
+    #テキスト分割に使うクラスなどはここで調整
+    text_splitter = RecursiveCharacterTextSplitter.from_tiktoken_encoder(
+            model_name=st.session_state.emb_model_name,
+            # 適切なchunk sizeは質問対象のPDFによって変わるので調整が必要
+            # 大きくしすぎると質問回答時に色々な箇所の情報を参照することができない
+            # 逆に、小さくしすぎると一つのchunkに十分なサイズの文脈が入らない
+            chunk_size=250,
+            # チャンクのオーバーラップもチューニングが必要
+            chunk_overlap=0,
+    )
+    return text_splitter.split_text(text)
+
 
 def get_pdf_text():
     """
@@ -35,26 +55,21 @@ def get_pdf_text():
     )
     if uploaded_file:
         pdf_reader = PdfReader(uploaded_file)
-        text = '\n\n'.join([page.extract_text() for page in pdf_reader.pages])
-        # text_splitter = RecursiveCharacterTextSplitter.from_tiktoken_encoder(
-        #     model_name=st.session_state.emb_model_name,
-        #     # 適切な chunk size は質問対象のPDFによって変わるため調整が必要
-        #     # 大きくしすぎると質問回答時に色々な箇所の情報を参照することができない
-        #     # 逆に小さすぎると一つのchunkに十分なサイズの文脈が入らない
-        #     chunk_size=250,
-        #     chunk_overlap=0,
-        # )
-        # return text_splitter.split_text(text)
-        return text
+        text = '\n\n'.join([page.extract_text() for page in pdf_reader.pages])  # セパレータとして'\n\n'を利用
+        # return text #元のテキストをそのまま返す場合
+
+        preprocessed_text = split_text(text)
+        return preprocessed_text
     else:
         return ""
     
 #ファイルアップロード
 uploaded_file_text = get_pdf_text()
 
-#アップロードした内容を表示
-st.write(uploaded_file_text)
+#アップロードした内容を表示[ToDo：この部分でベクトルデータベースへ保存]
+# st.write(uploaded_file_text)
 
+# テキスト入力[ToDo:テキスト入力部分はチャット部分に置き換えるため消去予定]
 def add_input_text():
     """
     テキストをブラウザに保存
@@ -65,7 +80,7 @@ def add_input_text():
         st.session_state.input_text_list.append(input_text)
         st.session_state.input_text = ""
 
-# テキスト入力[ToDo:テキスト入力部分はチャット部分に置き換えるため消去予定]
+# テキスト入力部分とボタン[ToDo:テキスト入力部分はチャット部分に置き換えるため消去予定]
 text_input = st.text_input("Enter some text", key="input_text")
 submit_button = st.button("Submit", on_click=add_input_text)
 
@@ -85,9 +100,17 @@ for message in st.session_state.messages:
 prompt = st.chat_input("Input some text")
 
 if prompt:
-    #ユーザの入力内容をst.session_state.messagesに追加
-    st.session_state.messages.append({"role":"user", "content":prompt})
+    # ファイルをアップロードした場合にはベクトル検索を実行して回答するようにプロンプトを修正
+    if uploaded_file_text != "":
+        input_prompt = "Search documents and answer the following comment.\n\n" + prompt
+    # ファイルがアップロードされていない場合にはそのまま
+    else:
+        input_prompt = prompt
 
+    #ユーザの入力内容をst.session_state.messagesに追加
+    st.session_state.messages.append({"role":"user", "content":input_prompt})
+
+    # ユーザの入力内容を履歴表示（システム内部で修正したプロンプトではなく、あくまでユーザが入力したものをそのまま表示）
     with st.chat_message("user"):
         st.markdown(prompt)
     
@@ -95,9 +118,9 @@ if prompt:
         # OpenAI APIを呼び出して回答を取得
         response = llm_client.chat.completions.create(
             model="gpt-3.5-turbo-1106",
-            # response_format={ "type": "json_object" }, #Jsonフォーマットでレスポンス生成
             messages=[{"role":"user", "content":prompt}],
-            max_tokens=150
+            #レスポンスの最大トークン数。要調整
+            max_tokens=500
         )
         respons_str = response.choices[0].message.content
         st.markdown(respons_str)

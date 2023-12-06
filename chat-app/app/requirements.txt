@@ -4,3 +4,5 @@ pandas
 numpy
 PyPDF2
 python-dotenv
+langchain==0.0.339rc3
+tiktoken
