@@ -1,0 +1,8 @@
+streamlit
+openai==1.1.1
+pandas
+numpy
+PyPDF2
+python-dotenv
+langchain==0.0.339rc3
+tiktoken

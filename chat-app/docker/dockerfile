@@ -1,0 +1,15 @@
+# Python 3.8ベースイメージを使用
+FROM python:3.8
+
+# 作業ディレクトリを設定
+WORKDIR /app
+COPY ./app /app
+
+# 必要なPythonライブラリをインストール
+RUN pip install -r requirements.txt
+
+# Streamlitのポートを公開
+EXPOSE 8501
+
+# Streamlitアプリケーションを実行
+CMD ["streamlit", "run", "app.py"]
